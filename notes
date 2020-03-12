@@ -1,0 +1,4 @@
+Steps:
+1) Feature engineering - you are removing too many features. Find a way to keep these or be clever with them
+2) Unpack Faron's script and annotate the model stacking so you can do it too
+3) Cross validation, k-folds will be the key here.
