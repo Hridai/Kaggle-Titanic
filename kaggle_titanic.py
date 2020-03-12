@@ -130,13 +130,24 @@ print('Median age of all passengers: {}'.format(in_all['Age'].median()))
 in_all['Age'] = in_all.groupby(['Sex', 'Pclass'])['Age'].apply(lambda x: x.fillna(x.median()))
 # Googling the name of the famous survivor tells us she boarded on S with her maid
 in_all['Embarked'] = in_all['Embarked'].fillna('S',inplace=True)
+# There is a Fare value missing
+in_all.corr()['Fare'].sort_values() # medium negative corr with Pclass
+median_fare = in_all.groupby(['Pclass','Parch','SibSp']).median()['Fare'][3][0][0]
+in_all['Fare'].fillna(median_fare,inplace=True)
 
-# Fill NAs
-in_train['Embarked'].fillna('S', inplace=True)
-in_train_median_age = in_train.median()['Age']
-in_train['Fare'].fillna(in_train_median_fare, inplace=True)
-in_test_median_fare = in_test['Fare'].median()
-in_test['Fare'].fillna(in_test_median_fare, inplace=True)
+# Cabins require a more nuanced approach
+disp = in_all['Cabin'].value_counts()
+# Reduce them to just their primary letter
+in_all['Cabin'].fillna('M',inplace=True)
+in_all['Cabin'].apply(lambda x: type(x)).value_counts()
+in_all['Cabin'] = disp_in_all['Cabin'].apply(lambda x: x[0])
+# We must investigate the relationship now between these classes and Survival
+h = in_all.groupby(['Cabin'])['Survived'].count()
+in_all['Cabin'].value_counts()
+idx_t = in_all[in_all['Cabin'] == 'T'].index
+in_all.loc[idx_t,'Cabin'] = 'A'
+#### Plot graph(s) here
+#https://www.kaggle.com/gunesevitan/titanic-advanced-feature-engineering-tutorial
 
 in_train = onehotencode_col(in_train, 'Embarked')
 in_test = onehotencode_col(in_test, 'Embarked')
