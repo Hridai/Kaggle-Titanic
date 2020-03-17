@@ -248,15 +248,15 @@ best.
 The approach:
 Done 1) First learn to run the models on the training set spilt by k folds
 Done 2) Engineer some of the features and check how much the results move by
-3) Hyperparameter Tuning
-4) Stack or boost the best classifiers and see if the results are even better
+Done 3) Hyperparameter Tuning
+Half Done 4) Stackin ExtraTrees and RandomForest does not work. Look at Kaggle for other ideas
 5) Instead of accuracy, use F1 score
     
 New Approach:
-1) Clean up the code
-2) Understand the second part of the code, annotate it to hell (e.g. the probability methods)
+Done 1) Clean up the code
+Half Done (lookup the metrics) 2) Understand the second part of the code, annotate it to hell (e.g. the probability methods)
 3) Tune hyperparameters, see if it can be done even better
-4) Stack/boost and see if the results are even better
+Done but got a worse score 4) Stack/boost and see if the results are even better
 5) Instead of accuracy, use the F1??
 '''
 
@@ -343,15 +343,32 @@ look very carefully at this
 in_train = StandardScaler().fit_transform(in_train)
 in_test = StandardScaler().fit_transform(in_test)
 
+################
+##### Gridsearch
+from sklearn.model_selection import GridSearchCV
+gridmodel = ExtraTreesClassifier()
+param_grid = [
+        {'n_estimators':[1750,2000], 'criterion':['gini'],'max_features':['auto','sqrt']}
+        ]
+gridsearch = GridSearchCV(gridmodel, param_grid, cv=5, scoring='neg_mean_squared_error', verbose=1)
+gridsearch.fit( in_train, train_results)
+print('lol')
+gridsearch.best_estimator_
+gs_results = gridsearch.cv_results_
+gs_feature_importance = gridsearch.best_estimator_.feature_importances_ # gives the relative importance of each feature
+''' you can use the above line to filter out the least important characteristics '''
+
+
 SEED = 42
 
 ## Attempt at 'Bagging' using 3 models
 # RandomForest, Extremely Random Trees, KNN
 rfc_model = RandomForestClassifier(criterion='gini', n_estimators=1750, max_depth=7,min_samples_split=6,min_samples_leaf=6,max_features='auto',oob_score=True,random_state=SEED,n_jobs=-1,verbose=1)
-etc_model = ExtraTreesClassifier(oob_score=True, bootstrap=True, verbose=1)
+# rfc_model = RandomForestClassifier(criterion='gini', n_estimators=2500, max_depth=7,min_samples_split=5,min_samples_leaf=5,max_features='auto',oob_score=True,random_state=SEED,n_jobs=-1,verbose=1)
+etc_model = ExtraTreesClassifier(max_features='sqrt',n_estimators=2000,oob_score=True, bootstrap=True, verbose=1)
 knn_model = KNeighborsClassifier(n_neighbors=3)
 
-class_list = [rfc_model, etc_model, knn_model]
+class_list = [rfc_model,etc_model]
 
 N = 5
 n_models = len(class_list)
@@ -471,7 +488,7 @@ y_pred = probs['pred'].astype(int)
 submission_df = pd.DataFrame(columns=['PassengerId', 'Survived'])
 submission_df['PassengerId'] = backup_in_test['PassengerId']
 submission_df['Survived'] = y_pred.values
-pd.DataFrame(submission_df).to_csv('C:\\GitProjects\\Kaggle Titanic\\predictions5.csv', header=True, index=False)
+pd.DataFrame(submission_df).to_csv('C:\\GitProjects\\Kaggle Titanic\\predictions7.csv', header=True, index=False)
 '''
 end
 '''
