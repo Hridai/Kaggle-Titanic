@@ -5,8 +5,11 @@ import seaborn as sns
 sns.set(style="darkgrid")
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.metrics import roc_curve, auc
-from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, AdaBoostClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import StratifiedShuffleSplit, StratifiedKFold
+from xgboost import XGBClassifier
 
 if __name__ == "__main__":
     print('eh?')
@@ -236,7 +239,6 @@ for item in non_ordinal_list:
     in_all = onehotencode_col(in_all, item)
 
 in_all = in_all.drop(['SibSp','Parch','PassengerId'],axis=1)
-in_all = in_all.drop(['PassengerId'],axis=1)
 
 in_train, in_test = divide_df(in_all)
 
@@ -266,7 +268,6 @@ All of the below might be redundant. Look nto this, we night not need this anymo
 It MIGHT be necessary for the ensemble/stacking approach
 '''
 
-from sklearn.model_selection import StratifiedShuffleSplit, StratifiedKFold
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
@@ -347,17 +348,24 @@ in_test = StandardScaler().fit_transform(in_test)
 ##### Gridsearch
 from sklearn.model_selection import GridSearchCV
 gridmodel = ExtraTreesClassifier()
+
 param_grid = [
-        {'n_estimators':[1750,2000], 'criterion':['gini'],'max_features':['auto','sqrt']}
+        {'n_estimators':[1500],
+         'min_samples_leaf':[3],
+         'max_features':['auto','sqrt',None]
+        }
         ]
-gridsearch = GridSearchCV(gridmodel, param_grid, cv=5, scoring='neg_mean_squared_error', verbose=1)
+
+         # 'max_features':['auto','sqrt',None]
+gridsearch = GridSearchCV(gridmodel, param_grid, cv=5, scoring='roc_auc', verbose=True)
 gridsearch.fit( in_train, train_results)
 print('lol')
 gridsearch.best_estimator_
+gridsearch.best_score_
 gs_results = gridsearch.cv_results_
 gs_feature_importance = gridsearch.best_estimator_.feature_importances_ # gives the relative importance of each feature
 ''' you can use the above line to filter out the least important characteristics '''
-
+y_pred = gridsearch.best_estimator_.predict(in_test)
 
 SEED = 42
 
@@ -365,11 +373,16 @@ SEED = 42
 # RandomForest, Extremely Random Trees, KNN
 rfc_model = RandomForestClassifier(criterion='gini', n_estimators=1750, max_depth=7,min_samples_split=6,min_samples_leaf=6,max_features='auto',oob_score=True,random_state=SEED,n_jobs=-1,verbose=1)
 # rfc_model = RandomForestClassifier(criterion='gini', n_estimators=2500, max_depth=7,min_samples_split=5,min_samples_leaf=5,max_features='auto',oob_score=True,random_state=SEED,n_jobs=-1,verbose=1)
-etc_model = ExtraTreesClassifier(max_features='sqrt',n_estimators=2000,oob_score=True, bootstrap=True, verbose=1)
-knn_model = KNeighborsClassifier(n_neighbors=3)
+etc_model = ExtraTreesClassifier(max_features='sqrt',n_estimators=1500,min_samples_leaf=3,oob_score=True, bootstrap=True, verbose=1)
+knn_model = KNeighborsClassifier(algorithm='auto', leaf_size=26, metric='minkowski',
+                     metric_params=None, n_jobs=None, n_neighbors=18, p=2,
+                     weights='uniform')
+logr = LogisticRegression(penalty='l1',solver='liblinear')
+ada_model = AdaBoostClassifier(random_state=SEED,learning_rate=1,n_estimators=200)
 
 class_list = [rfc_model,etc_model]
 
+y = train_results
 N = 5
 n_models = len(class_list)
 in_all_nosurv = in_all.drop(['Survived'],axis=1)
@@ -488,7 +501,7 @@ y_pred = probs['pred'].astype(int)
 submission_df = pd.DataFrame(columns=['PassengerId', 'Survived'])
 submission_df['PassengerId'] = backup_in_test['PassengerId']
 submission_df['Survived'] = y_pred.values
-pd.DataFrame(submission_df).to_csv('C:\\GitProjects\\Kaggle Titanic\\predictions7.csv', header=True, index=False)
+pd.DataFrame(submission_df).to_csv('C:\\GitProjects\\Kaggle Titanic\\predictionsBAG.csv', header=True, index=False)
 '''
 end
 '''
