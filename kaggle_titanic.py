@@ -6,13 +6,9 @@ sns.set(style="darkgrid")
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.metrics import roc_curve, auc
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, AdaBoostClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.model_selection import StratifiedShuffleSplit, StratifiedKFold
+from sklearn.model_selection import StratifiedKFold
 from xgboost import XGBClassifier
-
-if __name__ == "__main__":
-    print('eh?')
 
 def divide_df(all_data):
     # Returns divided dfs of training and test set
@@ -34,6 +30,7 @@ def onehotencode_col( in_arr, field_name ):
     in_arr = pd.concat([in_arr,embarked_col],axis=1)
     return in_arr
 
+##############
 # Import files
 in_test = pd.read_csv('C:\\GitProjects\\Kaggle Titanic\\test.csv')
 in_train = pd.read_csv('C:\\GitProjects\\Kaggle Titanic\\train.csv')
@@ -116,7 +113,7 @@ g = sns.catplot("Pclass", col="Embarked",  data=in_all, kind="count", palette="m
 g = g.set_ylabels("# of Passengers")
 
 
-#####################################
+################
 ### Data Cleanup
 
 # Filling NAs
@@ -242,112 +239,13 @@ in_all = in_all.drop(['SibSp','Parch','PassengerId'],axis=1)
 
 in_train, in_test = divide_df(in_all)
 
-'''
-The below is a new approach where we will make our own dyam samples out of the
-test set and run many different classifiers on it and see which comes up the
-best.
-
-The approach:
-Done 1) First learn to run the models on the training set spilt by k folds
-Done 2) Engineer some of the features and check how much the results move by
-Done 3) Hyperparameter Tuning
-Half Done 4) Stackin ExtraTrees and RandomForest does not work. Look at Kaggle for other ideas
-5) Instead of accuracy, use F1 score
-    
-New Approach:
-Done 1) Clean up the code
-Half Done (lookup the metrics) 2) Understand the second part of the code, annotate it to hell (e.g. the probability methods)
-3) Tune hyperparameters, see if it can be done even better
-Done but got a worse score 4) Stack/boost and see if the results are even better
-5) Instead of accuracy, use the F1??
-'''
-
-'''
-##########################################################################################
-All of the below might be redundant. Look nto this, we night not need this anymore at all.
-It MIGHT be necessary for the ensemble/stacking approach
-'''
-
-from sklearn.metrics import accuracy_score, log_loss
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
-from sklearn.linear_model import LogisticRegression
-
-classifiers = [
-    KNeighborsClassifier(3),
-    SVC(probability=True),
-    DecisionTreeClassifier(),
-    RandomForestClassifier(),
-	AdaBoostClassifier(),
-    GradientBoostingClassifier(),
-    GaussianNB(),
-    LinearDiscriminantAnalysis(),
-    QuadraticDiscriminantAnalysis(),
-    LogisticRegression()]
-
-log_cols = ["Classifier", "Accuracy"]
-log 	 = pd.DataFrame(columns=log_cols)
-
-sss = StratifiedShuffleSplit(n_splits=10, test_size=0.1, random_state=0)
-
-X = in_train
-y = train_results
-
-acc_dict = {}
-
-for train_index, test_index in sss.split(X, y):
-	X_train, X_test = X[train_index], X[test_index]
-	y_train, y_test = y[train_index], y[test_index]
-	
-	for clf in classifiers:
-		name = clf.__class__.__name__
-		clf.fit(X_train, y_train)
-		train_predictions = clf.predict(X_test)
-		acc = accuracy_score(y_test, train_predictions)
-		if name in acc_dict:
-			acc_dict[name] += acc
-		else:
-			acc_dict[name] = acc
-
-for clf in acc_dict:
-	acc_dict[clf] = acc_dict[clf] / 10.0
-	log_entry = pd.DataFrame([[clf, acc_dict[clf]]], columns=log_cols)
-	log = log.append(log_entry)
-
-plt.xlabel('Accuracy')
-plt.title('Classifier Accuracy')
-
-sns.set_color_codes("muted")
-sns.barplot(x='Accuracy', y='Classifier', data=log, color="b")
-
-# Pick a model after eyeballing the above results
-choicemodel = RandomForestClassifier()
-choicemodel.fit( in_train, train_results )
-out = choicemodel.predict( in_test  )
-out = pd.concat([backup_in_test['PassengerId'],pd.DataFrame(out)],axis=1)
-pd.DataFrame(out).columns = ['PassengerId','Survived']
-pd.DataFrame(out).to_csv('C:\\GitProjects\\Kaggle Titanic\\predictions3.csv', header=True, index=False)
-
-'''
-Remove up to here? This does not appear to be relevant anymore
-##############################################################
-'''
-
-'''
-look very carefully at this
-'''
-
 in_train = StandardScaler().fit_transform(in_train)
 in_test = StandardScaler().fit_transform(in_test)
 
 ################
 ##### Gridsearch
 from sklearn.model_selection import GridSearchCV
-gridmodel = ExtraTreesClassifier()
+gridmodel = XGBClassifier(max_depth=1)
 
 param_grid = [
         {'n_estimators':[1500],
@@ -370,14 +268,11 @@ y_pred = gridsearch.best_estimator_.predict(in_test)
 SEED = 42
 
 ## Attempt at 'Bagging' using 3 models
-# RandomForest, Extremely Random Trees, KNN
 rfc_model = RandomForestClassifier(criterion='gini', n_estimators=1750, max_depth=7,min_samples_split=6,min_samples_leaf=6,max_features='auto',oob_score=True,random_state=SEED,n_jobs=-1,verbose=1)
-# rfc_model = RandomForestClassifier(criterion='gini', n_estimators=2500, max_depth=7,min_samples_split=5,min_samples_leaf=5,max_features='auto',oob_score=True,random_state=SEED,n_jobs=-1,verbose=1)
 etc_model = ExtraTreesClassifier(max_features='sqrt',n_estimators=1500,min_samples_leaf=3,oob_score=True, bootstrap=True, verbose=1)
 knn_model = KNeighborsClassifier(algorithm='auto', leaf_size=26, metric='minkowski',
                      metric_params=None, n_jobs=None, n_neighbors=18, p=2,
                      weights='uniform')
-logr = LogisticRegression(penalty='l1',solver='liblinear')
 ada_model = AdaBoostClassifier(random_state=SEED,learning_rate=1,n_estimators=200)
 
 class_list = [rfc_model,etc_model]
@@ -422,11 +317,6 @@ for i, model in enumerate( class_list ):
         except:
             print('No OOB score available for {}'.format(model.__class__))
     
-# probs_list.append(probs.copy())
-# for col in probs.columns:
-#     probs[col].values[:] = 0
-# final_probs = pd.concat(probs_list,axis=1)
-
 print('Average OOB Score: {}'.format(oob))
 
 # Visualise importances
@@ -483,7 +373,7 @@ def plot_roc_curve(fprs, tprs):
     
     plt.show()
 
-# plot_roc_curve(fprs, tprs)
+plot_roc_curve(fprs, tprs)
 
 # Submit Code
 ## Takes the simple averages of all the 1 and 0 probabilities
@@ -502,6 +392,3 @@ submission_df = pd.DataFrame(columns=['PassengerId', 'Survived'])
 submission_df['PassengerId'] = backup_in_test['PassengerId']
 submission_df['Survived'] = y_pred.values
 pd.DataFrame(submission_df).to_csv('C:\\GitProjects\\Kaggle Titanic\\predictionsBAG.csv', header=True, index=False)
-'''
-end
-'''
